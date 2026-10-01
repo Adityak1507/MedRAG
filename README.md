@@ -11,7 +11,7 @@ This project is built using the **LangChain** framework and leverages modern emb
 ## Features
 
   * **Context-Specific QA:** Acts as a medical assistant, answering questions strictly based on the provided document context to prevent hallucinations or use of external knowledge.
-  * **Multi-Format Document Support:** Easily ingest PDF, TXT, and DOCX files.
+  * **Multi-Format Document Support:** Easily ingest PDF, TXT, and DOCX files (legacy `.doc` is not supported).
   * **Flexible Vector Store Options:** Supports integration with multiple vector databases:
       * **FAISS** (default for local, fast indexing)
       * **ChromaDB**
@@ -33,10 +33,10 @@ This project is built using the **LangChain** framework and leverages modern emb
 This project requires Python and uses several key libraries. The dependencies can be installed using `pip`.
 
 ```bash
-pip install langchain langchain-openai langchain-community
-pip install faiss-cpu sentence-transformers chromadb
+pip install langchain langchain-classic langchain-openai langchain-community
+pip install faiss-cpu sentence-transformers chromadb pypdf docx2txt transformers torch
 # Optional dependencies if using other models/stores
-# pip install pinecone-client cohere anthropic
+# pip install pinecone cohere anthropic langchain-anthropic
 ```
 
 The necessary core libraries found in the project include:
@@ -59,7 +59,7 @@ The system is designed to use external LLMs and vector stores, which require API
 | **Cohere** | `COHERE_API_KEY` |
 | **Pinecone** | `PINECONE_API_KEY` |
 
-The notebook attempts to load keys from a `.env` file or environment variables.
+The notebook reads keys from environment variables and only prompts for the ones that are not set.
 
 -----
 
@@ -103,8 +103,10 @@ Enter the main loop to ask medical questions about the document.
 The output will provide the **Answer**, the **LLM Type** used, the **Number of Retrieved Chunks**, and the **Source Documents** used to formulate the answer, including page and source file information.
 
 ```
-Enter your query (or 'h' for help, 'q' to quit): What are the three core diagnostic symptoms for Chronic Fatigue Syndrome?
+> Enter your question: What are the three core diagnostic symptoms for Chronic Fatigue Syndrome?
 ```
+
+Type `stats` to see system statistics, `chain` to toggle the LangChain QA chain, or `q` to quit.
 
 **Note:** If no LLM is initialized, the system defaults to a **retrieval-only** mode and will return the most relevant document excerpts without generating a synthetic answer.
 
@@ -116,16 +118,15 @@ The `RAGConfig` class allows you to fine-tune the system's performance:
 
 | Parameter | Default Value | Description |
 | :--- | :--- | :--- |
-| `llm_type` | `"local"` | LLM provider: `openai`, `anthropic`, `cohere`, or `local`. |
-| `llm_model` | `distilgpt2` (local) | The specific model name to use for generation. |
 | `embedding_model` | `all-MiniLM-L6-v2` | The HuggingFace model for creating embeddings. |
 | `vector_store_type` | `"faiss"` | Vector store backend: `faiss`, `chromadb`, or `pinecone`. |
-| `chunk_size` | `512` | The maximum size of text chunks for indexing. |
-| `chunk_overlap` | `128` | The overlap between consecutive text chunks. |
-| `top_k_retrieval` | `4` | The number of most relevant documents to retrieve for the LLM. |
-| `temperature` | `0.1` | The LLM generation temperature. |
-| `max_tokens` | `300` | Max response length for LLM generation. |
-| `index_name` | `medrag-index` | Name for remote vector store index (e.g., Pinecone). |
+| `chunk_size` | `1000` | The maximum size of text chunks for indexing (the demo uses `512`). |
+| `chunk_overlap` | `200` | The overlap between consecutive text chunks (the demo uses `128`). |
+| `top_k_retrieval` | `5` | The number of most relevant documents to retrieve for the LLM (the demo uses `4`). |
+| `temperature` | `0.1` | The LLM generation temperature (not sent to Anthropic models, which don't accept it). |
+| `max_tokens` | `500` | Max response length for LLM generation. |
+
+The LLM is chosen automatically from the API keys provided, in the order OpenAI → Anthropic → Cohere → local `distilgpt2`. The Pinecone index is named `medical-rag-index`.
 
 -----
 
