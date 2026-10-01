@@ -26,7 +26,84 @@ This project is built using the **LangChain** framework and leverages modern emb
 
 -----
 
-## Installation and Setup
+## Web App (FastAPI + React + PostgreSQL)
+
+The same RAG pipeline is also available as a web application:
+
+| Part | Stack | Location |
+| :--- | :--- | :--- |
+| **Backend** | FastAPI, SQLAlchemy, LangChain (splitting + chat models), sentence-transformers | `backend/` |
+| **Database / vector store** | PostgreSQL 16 with **pgvector** (HNSW index, cosine distance) | `docker-compose.yml` |
+| **Frontend** | React + TypeScript (Vite), served by nginx in Docker | `frontend/` |
+
+Documents, chunks with their embeddings, and question history are all stored in Postgres, so they persist across restarts and you can search several documents at once.
+
+### Run with Docker
+
+```bash
+cp .env.example .env        # optionally add OPENAI_API_KEY / ANTHROPIC_API_KEY / COHERE_API_KEY
+docker compose up --build
+```
+
+- App: http://localhost:8080
+- API docs (Swagger): http://localhost:8000/docs
+
+The first start downloads the `all-MiniLM-L6-v2` embedding model from Hugging Face, and it is cached in a Docker volume after that. With no LLM key set, answers are retrieval-only excerpts.
+
+### Run locally for development
+
+```bash
+# Database: Postgres 16 with pgvector on localhost:5432
+docker compose up db -d
+
+# Backend
+cd backend
+pip install -r requirements-dev.txt
+export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/medrag
+uvicorn app.main:app --reload            # http://localhost:8000
+
+# Frontend (proxies /api to the backend)
+cd frontend
+npm install
+npm run dev                              # http://localhost:5173
+```
+
+### API
+
+| Method | Path | Purpose |
+| :--- | :--- | :--- |
+| `POST` | `/api/documents` | Upload a PDF, DOCX or TXT file (multipart field `file`). Processing runs in the background and the status goes `processing` → `ready` / `failed`. |
+| `GET` | `/api/documents` | List documents with their status and chunk counts. |
+| `GET` / `DELETE` | `/api/documents/{id}` | Get a document, or delete it along with its chunks. |
+| `POST` | `/api/query` | `{"question": "...", "document_ids": [1, 2], "top_k": 4}`. Returns the answer, the LLM used, and the sources. `document_ids` and `top_k` are optional. |
+| `GET` | `/api/queries` | Recent questions and answers. |
+| `GET` | `/api/info`, `/api/health` | Active configuration and counts, and a liveness check. |
+
+### Configuration
+
+The backend reads environment variables (or `backend/.env`):
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | `postgresql+psycopg://postgres:postgres@localhost:5432/medrag` | Postgres connection string. |
+| `LLM_PROVIDER` | `auto` | `auto` (OpenAI → Anthropic → Cohere, whichever has a key), a specific provider, or `none`. |
+| `OPENAI_MODEL` / `ANTHROPIC_MODEL` / `COHERE_MODEL` | `gpt-4o-mini` / `claude-opus-5-5` / `command-r` | Chat model for each provider. |
+| `EMBEDDING_MODEL` / `EMBEDDING_DIM` | `all-MiniLM-L6-v2` / `384` | Must match each other. Changing them requires re-uploading documents. |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` / `TOP_K` | `512` / `128` / `4` | Chunking and retrieval. |
+| `MAX_UPLOAD_MB` | `25` | Upload size limit. |
+
+### Tests
+
+```bash
+cd backend
+pytest        # needs Postgres with pgvector; set DATABASE_URL to a disposable database (default: medrag_test)
+```
+
+The tests use a stand-in embedder and LLM, so no model download or API key is needed. **They drop and recreate all tables** in the target database.
+
+-----
+
+## Notebook: Installation and Setup
 
 ### 1\. Dependencies
 
