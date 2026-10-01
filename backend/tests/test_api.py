@@ -128,3 +128,85 @@ def test_info(client):
     info = client.get("/api/info").json()
     assert info["llm"] == "retrieval_only"
     assert info["documents"] == 0
+
+
+class StubChatModel:
+    def __init__(self, reply=None, error=None):
+        self.reply, self.error, self.calls = reply, error, 0
+
+    def invoke(self, prompt):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        return type("Reply", (), {"content": self.reply})()
+
+
+def chain(*stubs):
+    from app.rag.llm import LLM, ChatModel
+
+    return LLM([ChatModel(f"stub{i}", stub) for i, stub in enumerate(stubs)])
+
+
+def test_llm_chain_uses_first_working_provider():
+    first, second = StubChatModel(reply="from first"), StubChatModel(reply="from second")
+    assert chain(first, second).generate("q") == ("from first", "stub0")
+    assert second.calls == 0
+
+
+def test_llm_chain_falls_back_on_error_or_empty_reply():
+    failing = StubChatModel(error=RuntimeError("quota exceeded"))
+    empty = StubChatModel(reply="  ")
+    working = StubChatModel(reply="from third")
+    assert chain(failing, empty, working).generate("q") == ("from third", "stub2")
+
+
+def test_llm_chain_raises_when_all_fail():
+    from app.rag.llm import AllProvidersFailed
+
+    with pytest.raises(AllProvidersFailed, match="stub0.*quota.*stub1.*down"):
+        chain(StubChatModel(error=RuntimeError("quota")), StubChatModel(error=RuntimeError("down"))).generate("q")
+
+
+def test_query_falls_back_to_second_provider(client):
+    from app.deps import llm_dep
+    from app.main import app
+
+    app.dependency_overrides[llm_dep] = lambda: chain(
+        StubChatModel(error=RuntimeError("503")), StubChatModel(reply="Groq answer.")
+    )
+    upload(client, "cfs.txt", CFS_TEXT)
+    body = client.post("/api/query", json={"question": "core symptoms"}).json()
+    assert body["answer"] == "Groq answer."
+    assert body["llm"] == "stub1"
+
+
+def test_query_returns_excerpts_when_all_providers_fail(client):
+    from app.deps import llm_dep
+    from app.main import app
+
+    app.dependency_overrides[llm_dep] = lambda: chain(StubChatModel(error=RuntimeError("x")))
+    upload(client, "cfs.txt", CFS_TEXT)
+    body = client.post("/api/query", json={"question": "What treatment uses pacing?"}).json()
+    assert body["llm"] == "stub0 (all failed)"
+    assert "pacing" in body["answer"]
+
+
+def test_provider_order_from_settings(monkeypatch):
+    from app.config import get_settings
+    from app.rag import llm as llm_module
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_providers", "groq,gemini")
+    monkeypatch.setattr(settings, "gemini_api_key", "g-key")
+    monkeypatch.setattr(settings, "groq_api_key", "")
+    llm_module.get_llm.cache_clear()
+    try:
+        built = llm_module.get_llm()
+        assert [m.name for m in built.models] == [f"gemini:{settings.gemini_model}"]  # groq skipped: no key
+
+        monkeypatch.setattr(settings, "llm_providers", "gemini,openai")
+        llm_module.get_llm.cache_clear()
+        with pytest.raises(RuntimeError, match="openai"):
+            llm_module.get_llm()
+    finally:
+        llm_module.get_llm.cache_clear()

@@ -5,10 +5,10 @@ import re
 import pytest
 
 os.environ.setdefault(
-    "DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/medrag_test"
+    "DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5433/medrag_test"
 )
 os.environ["PRELOAD_MODELS"] = "false"
-os.environ["LLM_PROVIDER"] = "none"
+os.environ["LLM_PROVIDERS"] = "none"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -43,7 +43,7 @@ class FakeLLM:
 
     def generate(self, prompt):
         self.prompts.append(prompt)
-        return "Fake answer."
+        return "Fake answer.", self.name
 
 
 @pytest.fixture(scope="session", autouse=True)

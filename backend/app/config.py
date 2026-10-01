@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/medrag"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5433/medrag"
 
     # Embeddings: the dimension must match the model, it sizes the pgvector column
     embedding_model: str = "all-MiniLM-L6-v2"
@@ -20,15 +20,17 @@ class Settings(BaseSettings):
     top_k: int = 4
 
     # Generation
-    llm_provider: str = "auto"  # auto | openai | anthropic | cohere | none
+    # Comma-separated fallback order: if one provider errors, the next is tried. "none" disables generation.
+    llm_providers: str = "gemini,groq"
     temperature: float = 0.1
     max_tokens: int = 500
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-    anthropic_api_key: str = ""
-    anthropic_model: str = "claude-opus-5-5"
-    cohere_api_key: str = ""
-    cohere_model: str = "command-r"
+    # Kept low so a failing provider hands over to the next one quickly
+    llm_timeout: float = 30
+    llm_max_retries: int = 1
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.8-flash"
+    groq_api_key: str = ""
+    groq_model: str = "openai/gpt-oss-120b"
 
     # Uploads
     max_upload_mb: int = 25

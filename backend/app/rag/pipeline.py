@@ -155,8 +155,9 @@ def answer_question(
 
     prompt = PROMPT_TEMPLATE.format(no_answer=NO_ANSWER, context=context, question=question)
     try:
-        return Answer(llm.generate(prompt), llm.name, retrieved)
-    except Exception as exc:
+        text, used = llm.generate(prompt)
+        return Answer(text, used, retrieved)
+    except Exception:
         logger.exception("LLM generation failed")
-        fallback = f"The language model failed ({type(exc).__name__}). " + summarize_context(context, question)
-        return Answer(fallback, f"{llm.name} (failed)", retrieved)
+        fallback = "All language models failed. " + summarize_context(context, question)
+        return Answer(fallback, f"{llm.name} (all failed)", retrieved)
