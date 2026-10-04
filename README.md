@@ -162,6 +162,26 @@ docker compose run --rm -v ${PWD}/backend/tests:/app/tests -e DATABASE_URL=postg
 
 [`eval/`](eval/README.md) measures a running instance end to end: a quick hand-written smoke set, the expert-labelled PubMedQA set (1,000 questions over real PubMed abstracts), and a CSV workflow for clinicians to grade answers.
 
+#### Results
+
+Baseline on 2026-10-04 (`all-MiniLM-L6-v2` embeddings, chunk size 512, `top_k` 4, `MIN_SIMILARITY` 0.35, Gemini `gemini-3.8-flash` → Groq `openai/gpt-oss-120b`). Full reports: [smoke](eval/results/20261004-120455-smoke.md), [PubMedQA](eval/results/20261004-111532-pubmedqa.md).
+
+| | Smoke set | PubMedQA |
+| :--- | :--- | :--- |
+| Documents / questions | 5 / 33 | 900 abstracts (+100 held out) / 1,000 |
+| Right source ranked first | 100% (25/25) | 98.0% (882/900) |
+| Right source in top 4 (what the LLM sees) | 100% (25/25) | 99.4% (895/900) |
+| Answers correct | 100% (25/25, every key fact present) | 76.9% (40/52) agree with the expert yes/no/maybe label |
+| Answerable questions refused | 0% (0/25) | 3.7% (2/54) |
+| Unanswerable questions refused | 100% (8/8) | 83.3% (5/6) held-out questions |
+| Refused by the cutoff, no LLM call | 6 of 33 | 1 of 100 held-out; 2 of 900 answerable |
+| Latency p50 / p95 | 1.05 s / 1.30 s | 1.53 s / 1.78 s |
+
+- PubMedQA answers come from a sample of 60 questions, so treat 76.9% as roughly ±11 points. For context, the PubMedQA paper reports 78% for a single human annotator.
+- Free-tier Gemini quotas meant every LLM answer in these runs came from the Groq fallback.
+- Most PubMedQA disagreements (9 of 12) are the model answering "maybe" where the expert said yes or no.
+- The smoke set was written for this project and is deliberately easy; it catches regressions rather than measuring quality. See [`eval/README.md`](eval/README.md#results) for the failure analysis and how `MIN_SIMILARITY` was chosen.
+
 -----
 
 ## Notebook: Installation and Setup
