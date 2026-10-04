@@ -9,6 +9,8 @@ os.environ.setdefault(
 )
 os.environ["PRELOAD_MODELS"] = "false"
 os.environ["LLM_PROVIDERS"] = "none"
+# The bag-of-words test embedder scores lower than real models; tests that need the cutoff set it
+os.environ["MIN_SIMILARITY"] = "0"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -16,6 +18,7 @@ from app.config import get_settings  # noqa: E402
 from app.db import Base, engine, init_db  # noqa: E402
 from app.deps import embedder_dep, llm_dep  # noqa: E402
 from app.main import app  # noqa: E402
+from app.security import login_throttle  # noqa: E402
 
 
 class FakeEmbedder:
@@ -45,6 +48,11 @@ class FakeLLM:
         self.prompts.append(prompt)
         return "Fake answer.", self.name
 
+    def stream(self, prompt):
+        self.prompts.append(prompt)
+        yield self.name, "Fake "
+        yield self.name, "answer."
+
 
 @pytest.fixture(scope="session", autouse=True)
 def database():
@@ -67,15 +75,42 @@ def fake_llm():
     return FakeLLM()
 
 
+PASSWORD = "correct horse battery"
+
+
+def register(test_client: TestClient, email: str, password: str = PASSWORD, name: str | None = None) -> dict:
+    """Create an account; the client keeps the session cookie, so later requests are signed in."""
+    resp = test_client.post("/api/auth/register", json={"email": email, "password": password, "name": name})
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
 @pytest.fixture
-def client(fake_llm, request):
+def anon_client(fake_llm, request):
+    """A client that is not signed in."""
     embedder = FakeEmbedder(get_settings().embedding_dim)
     use_llm = request.node.get_closest_marker("no_llm") is None
     app.dependency_overrides[embedder_dep] = lambda: embedder
     app.dependency_overrides[llm_dep] = lambda: fake_llm if use_llm else None
+    login_throttle.reset()
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(anon_client):
+    """Signed in as alice@example.org."""
+    register(anon_client, "alice@example.org", name="Alice")
+    return anon_client
+
+
+@pytest.fixture
+def other_client(client):
+    """Signed in as bob@example.org, with its own cookies (alice stays signed in on `client`)."""
+    with TestClient(app) as bob:
+        register(bob, "bob@example.org", name="Bob")
+        yield bob
 
 
 def pytest_configure(config):

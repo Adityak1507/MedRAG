@@ -1,5 +1,5 @@
-import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
 // In development, /api is proxied to the FastAPI backend
 export default defineConfig({
@@ -9,5 +9,9 @@ export default defineConfig({
     proxy: {
       "/api": process.env.VITE_API_PROXY ?? "http://localhost:8000",
     },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
   },
 });

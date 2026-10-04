@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 128
     top_k: int = 4
+    # Questions whose best-matching passage scores below this cosine similarity are refused without
+    # calling the LLM. 0 disables the check. See eval/README.md for how the default was chosen.
+    min_similarity: float = 0.35
 
     # Generation
     # Comma-separated fallback order: if one provider errors, the next is tried. "none" disables generation.
@@ -34,8 +37,21 @@ class Settings(BaseSettings):
 
     # Uploads
     max_upload_mb: int = 25
+    # OCR for PDF pages without a text layer (scanned documents); needs the tesseract binary
+    ocr_enabled: bool = True
+    ocr_language: str = "eng"  # tesseract language code(s), e.g. "eng+fra"
+    ocr_dpi: int = 300
 
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    # Accounts. With registration off, create users with: python -m app.cli create-user EMAIL
+    allow_registration: bool = True
+    session_ttl_hours: int = 24 * 7
+    # Set true when the app is served over HTTPS so the session cookie is never sent in clear text
+    cookie_secure: bool = False
+    # Failed logins allowed per email and client address in the window before answering 429
+    login_max_failures: int = 5
+    login_window_minutes: int = 15
 
     # Load the embedding model at startup instead of on the first request
     preload_models: bool = True

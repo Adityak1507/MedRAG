@@ -2,14 +2,14 @@ import os
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, UploadFile, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import SessionLocal, get_db
-from app.deps import embedder_dep
-from app.models import Document
+from app.deps import current_user, embedder_dep
+from app.models import Document, User
 from app.rag.embeddings import Embedder
 from app.rag.loaders import SUPPORTED_TYPES
 from app.rag.pipeline import ingest_document
@@ -34,6 +34,7 @@ def _ingest_in_background(document_id: int, path: Path, embedder: Embedder) -> N
 def upload_document(
     file: UploadFile,
     background_tasks: BackgroundTasks,
+    user: User = Depends(current_user),
     db: Session = Depends(get_db),
     embedder: Embedder = Depends(embedder_dep),
 ):
@@ -65,7 +66,7 @@ def upload_document(
         tmp_path.unlink(missing_ok=True)
         raise
 
-    document = Document(filename=filename[:255], file_type=file_type)
+    document = Document(user_id=user.id, filename=filename[:255], file_type=file_type)
     db.add(document)
     db.commit()
     db.refresh(document)
@@ -75,22 +76,35 @@ def upload_document(
 
 
 @router.get("", response_model=list[DocumentOut])
-def list_documents(db: Session = Depends(get_db)):
-    return db.scalars(select(Document).order_by(Document.created_at.desc(), Document.id.desc())).all()
+def list_documents(
+    response: Response,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Your documents, newest first. The total count is in the X-Total-Count header."""
+    mine = Document.user_id == user.id
+    response.headers["X-Total-Count"] = str(db.scalar(select(func.count()).select_from(Document).where(mine)))
+    return db.scalars(
+        select(Document).where(mine).order_by(Document.created_at.desc(), Document.id.desc()).offset(offset).limit(limit)
+    ).all()
 
 
-@router.get("/{document_id}", response_model=DocumentOut)
-def get_document(document_id: int, db: Session = Depends(get_db)):
+def _own_document(db: Session, user: User, document_id: int) -> Document:
+    """The user's document, or 404 (also for other users' documents, so ids can't be probed)."""
     document = db.get(Document, document_id)
-    if document is None:
+    if document is None or document.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
     return document
 
 
+@router.get("/{document_id}", response_model=DocumentOut)
+def get_document(document_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return _own_document(db, user, document_id)
+
+
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document(document_id: int, db: Session = Depends(get_db)):
-    document = db.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
-    db.delete(document)
+def delete_document(document_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    db.delete(_own_document(db, user, document_id))
     db.commit()

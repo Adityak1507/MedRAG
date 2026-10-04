@@ -128,17 +128,30 @@ def test_info(client):
     info = client.get("/api/info").json()
     assert info["llm"] == "retrieval_only"
     assert info["documents"] == 0
+    assert info["min_similarity"] == 0
+    assert isinstance(info["ocr"], bool)
 
 
 class StubChatModel:
-    def __init__(self, reply=None, error=None):
-        self.reply, self.error, self.calls = reply, error, 0
+    """Stands in for a LangChain chat model. fail_after=n raises after streaming n pieces."""
+
+    def __init__(self, reply=None, error=None, fail_after=None):
+        self.reply, self.error, self.fail_after, self.calls = reply, error, fail_after, 0
 
     def invoke(self, prompt):
         self.calls += 1
         if self.error:
             raise self.error
         return type("Reply", (), {"content": self.reply})()
+
+    def stream(self, prompt):
+        self.calls += 1
+        if self.error and self.fail_after is None:
+            raise self.error
+        for i, word in enumerate((self.reply or "").split(" ")):
+            if self.fail_after is not None and i == self.fail_after:
+                raise self.error or RuntimeError("connection reset")
+            yield type("Chunk", (), {"content": word + " "})()
 
 
 def chain(*stubs):
@@ -187,7 +200,7 @@ def test_query_returns_excerpts_when_all_providers_fail(client):
     app.dependency_overrides[llm_dep] = lambda: chain(StubChatModel(error=RuntimeError("x")))
     upload(client, "cfs.txt", CFS_TEXT)
     body = client.post("/api/query", json={"question": "What treatment uses pacing?"}).json()
-    assert body["llm"] == "stub0 (all failed)"
+    assert body["llm"] == "all LLMs failed"
     assert "pacing" in body["answer"]
 
 
@@ -210,3 +223,16 @@ def test_provider_order_from_settings(monkeypatch):
             llm_module.get_llm()
     finally:
         llm_module.get_llm.cache_clear()
+
+
+def test_long_model_names_are_stored(client):
+    from app.deps import llm_dep
+    from app.main import app
+    from app.rag.llm import LLM, ChatModel
+
+    long_name = "groq:" + "x" * 120
+    app.dependency_overrides[llm_dep] = lambda: LLM([ChatModel(long_name, StubChatModel(reply="ok"))])
+    upload(client, "cfs.txt", CFS_TEXT)
+    resp = client.post("/api/query", json={"question": "core symptoms"})
+    assert resp.status_code == 200
+    assert resp.json()["llm"] == long_name

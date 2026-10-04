@@ -1,6 +1,7 @@
 """Chat model selection with fallback: each provider is tried in order until one answers."""
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -18,16 +19,22 @@ class ChatModel:
     model: Any  # a LangChain chat model
 
     def generate(self, prompt: str) -> str:
-        reply = self.model.invoke(prompt)
-        content = getattr(reply, "content", reply)
-        if isinstance(content, list):  # some providers return content blocks
-            content = "".join(
-                block.get("text", "") if isinstance(block, dict) else str(block) for block in content
-            )
-        text = str(content).strip()
+        text = _text(self.model.invoke(prompt)).strip()
         if not text:
             raise ValueError("empty response")
         return text
+
+    def stream(self, prompt: str) -> Iterator[str]:
+        for chunk in self.model.stream(prompt):
+            if piece := _text(chunk):
+                yield piece
+
+
+def _text(message: Any) -> str:
+    content = getattr(message, "content", message)
+    if isinstance(content, list):  # some providers return content blocks
+        content = "".join(block.get("text", "") if isinstance(block, dict) else str(block) for block in content)
+    return str(content)
 
 
 class AllProvidersFailed(RuntimeError):
@@ -51,6 +58,26 @@ class LLM:
             try:
                 return model.generate(prompt), model.name
             except Exception as exc:
+                logger.warning("%s failed, trying the next provider: %s", model.name, exc)
+                errors.append(f"{model.name}: {type(exc).__name__}: {exc}")
+        raise AllProvidersFailed("; ".join(errors))
+
+    def stream(self, prompt: str) -> Iterator[tuple[str, str]]:
+        """Yield (model name, text piece). A provider that fails before its first piece hands over to the
+        next one; a failure after streaming has started is raised, since the output can't be taken back."""
+        errors = []
+        for model in self.models:
+            started = False
+            try:
+                for piece in model.stream(prompt):
+                    started = True
+                    yield model.name, piece
+                if started:
+                    return
+                raise ValueError("empty response")
+            except Exception as exc:
+                if started:
+                    raise
                 logger.warning("%s failed, trying the next provider: %s", model.name, exc)
                 errors.append(f"{model.name}: {type(exc).__name__}: {exc}")
         raise AllProvidersFailed("; ".join(errors))

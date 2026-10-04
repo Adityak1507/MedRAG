@@ -12,3 +12,7 @@ langchain-google-genai>=2.0
 langchain-groq>=0.2
 pypdf>=4.0
 docx2txt>=0.8
+pymupdf>=1.24.3
+pytesseract>=0.3.10
+argon2-cffi>=23.1
+email-validator>=2.1

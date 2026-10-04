@@ -10,9 +10,11 @@ interface Props {
   onUpload: (files: File[]) => Promise<void>;
   onDelete: (doc: MedDocument) => Promise<void>;
   maxUploadMb?: number;
+  /** Whether the server can OCR scanned PDFs */
+  ocr?: boolean;
 }
 
-export function DocumentPanel({ documents, selected, onToggle, onUpload, onDelete, maxUploadMb }: Props) {
+export function DocumentPanel({ documents, selected, onToggle, onUpload, onDelete, maxUploadMb, ocr }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -57,6 +59,7 @@ export function DocumentPanel({ documents, selected, onToggle, onUpload, onDelet
         <span className="muted">
           PDF, DOCX or TXT{maxUploadMb ? `, up to ${maxUploadMb} MB` : ""}
         </span>
+        {ocr && <span className="muted small">Scanned PDFs are read with OCR</span>}
       </label>
 
       {documents.length === 0 ? (
@@ -86,6 +89,11 @@ export function DocumentPanel({ documents, selected, onToggle, onUpload, onDelet
                     <span className={`badge ${doc.status}`}>{doc.status}</span>
                     {doc.status === "ready" &&
                       ` ${doc.num_chunks} chunk${doc.num_chunks === 1 ? "" : "s"}${doc.num_pages > 1 ? ` · ${doc.num_pages} pages` : ""}`}
+                    {doc.status === "ready" && doc.ocr_pages > 0 && (
+                      <span className="ocr" title="Text was read from page images with OCR; check quotes against the original">
+                        {` · OCR ${doc.ocr_pages === doc.num_pages ? "all pages" : `${doc.ocr_pages} page${doc.ocr_pages === 1 ? "" : "s"}`}`}
+                      </span>
+                    )}
                   </span>
                   {doc.error && <span className="error small">{doc.error}</span>}
                 </div>

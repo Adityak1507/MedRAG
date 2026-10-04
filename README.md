@@ -34,6 +34,34 @@ The same RAG pipeline is also available as a web application:
 
 Documents, chunks with their embeddings, and question history are all stored in Postgres, so they persist across restarts and you can search several documents at once.
 
+What the web app does:
+
+- **Accounts**: everyone signs in, and each user's documents, chats and history are private to them.
+- **Chats**: questions are grouped into chats, each titled after its first question; rename, delete and page through them (30 at a time).
+- **Upload** PDF, DOCX and TXT files. **Scanned PDFs** (pages with no text layer) are read with Tesseract OCR, and the document list marks which ones were OCR'd.
+- **Streamed answers**: the retrieved sources appear first, then the answer as it is generated, labelled with the model that wrote it.
+- **Gemini → Groq fallback**: if a provider fails before it starts answering (quota, outage, timeout), the next one takes over. If all fail, the most relevant excerpts are shown instead.
+- **Similarity cutoff**: when nothing in the documents is close to the question (`MIN_SIMILARITY`), it is refused straight away without spending an LLM call.
+- **Search scope**: tick documents to search only those.
+- **History**: each chat loads 20 questions at a time ("Load earlier questions"); single questions can be deleted.
+
+### Accounts
+
+- **The first account to register takes over everything created before accounts existed**: existing documents, and all earlier questions in a chat called "Earlier questions". After upgrading, register your own account first.
+- Passwords are hashed with Argon2. Sign-in creates a server-side session, kept in an httpOnly `SameSite=Lax` cookie that page scripts can't read. Sign-out ends it. Sessions last `SESSION_TTL_HOURS`, and only a hash of each token is stored.
+- API clients (scripts, the evaluation harness) send the token from `POST /api/auth/login` as `Authorization: Bearer <token>`. The Swagger page at `/docs` has an **Authorize** button for it.
+- After `LOGIN_MAX_FAILURES` wrong passwords for an email from one address, sign-in is refused for `LOGIN_WINDOW_MINUTES`. The counter is per backend process.
+- With `ALLOW_REGISTRATION=false`, accounts are created from the command line:
+
+  ```bash
+  docker compose exec backend python -m app.cli create-user someone@example.org --name "Dr Someone"
+  docker compose exec backend python -m app.cli reset-password someone@example.org   # also signs them out everywhere
+  docker compose exec backend python -m app.cli list-users
+  ```
+
+- `DELETE /api/auth/me` (with the password) deletes an account and all its documents, chats and sessions.
+- Behind HTTPS, set `COOKIE_SECURE=true` so the session cookie is never sent over plain HTTP.
+
 ### Run with Docker
 
 ```bash
@@ -43,6 +71,8 @@ docker compose up --build
 
 - App: http://localhost:8080
 - API docs (Swagger): http://localhost:8000/docs
+
+The backend image includes Tesseract (English) for OCR. For other languages, add the matching `tesseract-ocr-<lang>` package in `backend/Dockerfile` and set `OCR_LANGUAGE` (e.g. `eng+fra`).
 
 The first start downloads the `all-MiniLM-L6-v2` embedding model from Hugging Face, and it is cached in a Docker volume after that. With no LLM key set, answers are retrieval-only excerpts.
 
@@ -57,6 +87,8 @@ cd backend
 pip install -r requirements-dev.txt
 export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5433/medrag
 uvicorn app.main:app --reload            # http://localhost:8000
+# OCR outside Docker needs the tesseract binary on PATH (apt install tesseract-ocr / brew install tesseract /
+# choco install tesseract); without it, PDFs with a text layer still work and scanned ones fail with a clear error
 
 # Frontend (proxies /api to the backend)
 cd frontend
@@ -66,13 +98,26 @@ npm run dev                              # http://localhost:5173
 
 ### API
 
+Everything except `/api/health` and `/api/auth/{config,register,login}` needs a signed-in user, and only ever sees that user's data. Requests for another user's document, chat or question get 404.
+
 | Method | Path | Purpose |
 | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | `{"email", "password", "name"?}`: create an account (password at least 8 characters) and sign in. 409 if the email is taken, 403 if registration is off. |
+| `POST` | `/api/auth/login` | `{"email", "password"}`: sets the session cookie and returns `{user, token, expires_at}`. 401 on a wrong password, 429 after too many. |
+| `POST` | `/api/auth/logout` | End the current session. |
+| `GET` / `DELETE` | `/api/auth/me` | The signed-in user, or delete the account and all its data (body `{"password"}`). |
+| `GET` | `/api/auth/config` | Public: whether registration is open, and the minimum password length. |
+| `GET` / `POST` | `/api/chats?limit=30&offset=0` | Your chats, most recently active first (total in `X-Total-Count`), or create one (`{"title"?}`). |
+| `GET` / `PATCH` / `DELETE` | `/api/chats/{id}` | Get, rename (`{"title"}`) or delete a chat with its questions. |
+| `GET` | `/api/chats/{id}/messages?limit=20&offset=0` | A chat's questions and answers, newest first (total in `X-Total-Count`). |
 | `POST` | `/api/documents` | Upload a PDF, DOCX or TXT file (multipart field `file`). Processing runs in the background and the status goes `processing` → `ready` / `failed`. |
-| `GET` | `/api/documents` | List documents with their status and chunk counts. |
+| `GET` | `/api/documents?limit=100&offset=0` | Documents, newest first, with status, chunk count and `ocr_pages`. The total is in the `X-Total-Count` header. |
 | `GET` / `DELETE` | `/api/documents/{id}` | Get a document, or delete it along with its chunks. |
-| `POST` | `/api/query` | `{"question": "...", "document_ids": [1, 2], "top_k": 4}`. Returns the answer, the LLM that actually answered (e.g. `groq:...` after a Gemini failure), and the sources. `document_ids` and `top_k` are optional. |
-| `GET` | `/api/queries` | Recent questions and answers. |
+| `POST` | `/api/query` | `{"question": "...", "chat_id": 3, "document_ids": [1, 2], "top_k": 4}`. Without `chat_id`, a new chat is started (titled after the question). Returns the answer, the LLM that actually answered (e.g. `groq:...` after a Gemini failure; `similarity_cutoff` or `retrieval_only` when no LLM was used), and the sources. `document_ids` and `top_k` are optional. |
+| `POST` | `/api/query/stream` | Same body, answered as server-sent events: `sources` (with the `chat_id`), then `token` events as the answer is generated, then `done` with the saved result (same shape as `/api/query`). |
+| `POST` | `/api/search` | Same body; returns the passages that would be retrieved, without calling an LLM or saving history. |
+| `GET` | `/api/queries?limit=20&offset=0` | All your questions across chats, newest first. The total is in the `X-Total-Count` header. |
+| `DELETE` | `/api/queries/{id}`, `/api/queries` | Delete one question, or all your chats and questions (documents are kept). |
 | `GET` | `/api/info`, `/api/health` | Active configuration and counts, and a liveness check. |
 
 ### Configuration
@@ -88,16 +133,34 @@ The backend reads environment variables (or `backend/.env`):
 | `LLM_TIMEOUT` / `LLM_MAX_RETRIES` | `30` / `1` | Per-provider timeout (seconds) and retries before falling back. |
 | `EMBEDDING_MODEL` / `EMBEDDING_DIM` | `all-MiniLM-L6-v2` / `384` | Must match each other. Changing them requires re-uploading documents. |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` / `TOP_K` | `512` / `128` / `4` | Chunking and retrieval. |
+| `MIN_SIMILARITY` | `0.35` | Refuse without calling the LLM when the best passage's cosine similarity is below this. `0` disables it. Tuned on the evaluation sets; see [`eval/README.md`](eval/README.md). Tied to the embedding model, so re-tune it if you change `EMBEDDING_MODEL`. |
+| `OCR_ENABLED` / `OCR_LANGUAGE` / `OCR_DPI` | `true` / `eng` / `300` | OCR for PDF pages without a text layer. |
 | `MAX_UPLOAD_MB` | `25` | Upload size limit. |
+| `ALLOW_REGISTRATION` | `true` | Let anyone create an account from the sign-in page. With `false`, use `python -m app.cli create-user`. |
+| `SESSION_TTL_HOURS` | `168` | How long a sign-in lasts. |
+| `COOKIE_SECURE` | `false` | Set `true` when served over HTTPS. |
+| `LOGIN_MAX_FAILURES` / `LOGIN_WINDOW_MINUTES` | `5` / `15` | Sign-in throttling per email and client address. |
 
 ### Tests
 
 ```bash
 cd backend
 pytest        # needs Postgres with pgvector; set DATABASE_URL to a disposable database (default: medrag_test)
+
+cd frontend
+npm test      # Vitest + Testing Library in jsdom; also runs during the frontend Docker build
 ```
 
-The tests use a stand-in embedder and LLM, so no model download or API key is needed. **They drop and recreate all tables** in the target database.
+The backend tests use a stand-in embedder and LLM, so no model download or API key is needed. **They drop and recreate all tables** in the target database. The OCR test is skipped when Tesseract is not installed; it runs inside the backend image:
+
+```bash
+docker compose exec db createdb -U postgres medrag_test   # once
+docker compose run --rm -v ${PWD}/backend/tests:/app/tests -e DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/medrag_test backend sh -c "pip install pytest httpx && pytest -q"
+```
+
+### Evaluation
+
+[`eval/`](eval/README.md) measures a running instance end to end: a quick hand-written smoke set, the expert-labelled PubMedQA set (1,000 questions over real PubMed abstracts), and a CSV workflow for clinicians to grade answers.
 
 -----
 

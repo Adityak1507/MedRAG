@@ -1,0 +1,9 @@
+Asthma and Chronic Obstructive Pulmonary Disease (COPD)
+
+Asthma is a chronic inflammatory airway disease with variable, largely reversible airflow obstruction. Typical symptoms are wheeze, breathlessness, chest tightness and cough that vary over time and are often worse at night.
+
+COPD is characterised by persistent airflow limitation that is not fully reversible. The diagnosis is confirmed by spirometry showing a post-bronchodilator FEV1/FVC ratio below 0.70. Cigarette smoking is the main cause of COPD, and smoking cessation is the single most effective intervention to slow its progression.
+
+In asthma, inhaled corticosteroids such as budesonide are the cornerstone of long-term control. Short-acting beta-2 agonists such as salbutamol (albuterol) relieve acute symptoms but should not be used alone as long-term treatment.
+
+In COPD, long-acting bronchodilators (LAMA and LABA) are the mainstay of maintenance therapy. Pulmonary rehabilitation improves exercise capacity and quality of life. Long-term oxygen therapy improves survival in patients with severe resting hypoxaemia.

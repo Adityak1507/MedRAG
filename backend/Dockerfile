@@ -5,6 +5,11 @@ WORKDIR /app
 # CPU-only torch keeps the image far smaller than the default CUDA build
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 
+# Tesseract is the OCR engine for scanned PDFs (add e.g. tesseract-ocr-fra for more languages)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

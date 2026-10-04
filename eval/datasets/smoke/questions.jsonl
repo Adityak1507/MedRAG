@@ -1,0 +1,33 @@
+{"id": "h1", "question": "What blood pressure range defines stage 1 hypertension?", "answerable": true, "gold_file": "hypertension_guide.pdf", "gold_page": 1, "must_include": [["130"], ["139"], ["80"], ["89"]]}
+{"id": "h2", "question": "At what blood pressure does stage 2 hypertension start?", "answerable": true, "gold_file": "hypertension_guide.pdf", "gold_page": 1, "must_include": [["140/90", "140 mmhg", "140"]]}
+{"id": "h3", "question": "What is the ideal daily sodium intake for people with high blood pressure?", "answerable": true, "gold_file": "hypertension_guide.pdf", "gold_page": 2, "must_include": [["1500", "1,500"]]}
+{"id": "h4", "question": "By how much does the DASH diet lower systolic blood pressure?", "answerable": true, "gold_file": "hypertension_guide.pdf", "gold_page": 2, "must_include": [["11"]]}
+{"id": "h5", "question": "Which drug classes are first-line for hypertension?", "answerable": true, "gold_file": "hypertension_guide.pdf", "gold_page": 3, "must_include": [["thiazide"], ["ace inhibitor"], ["arb", "angiotensin receptor"], ["calcium channel"]]}
+{"id": "h6", "question": "What side effect of lisinopril might make a patient switch to losartan?", "answerable": true, "gold_file": "hypertension_guide.pdf", "gold_page": 3, "must_include": [["cough"]]}
+{"id": "h7", "question": "What blood pressure level defines a hypertensive crisis?", "answerable": true, "gold_file": "hypertension_guide.pdf", "gold_page": 3, "must_include": [["180/120", "180"]]}
+{"id": "h8", "question": "Which antihypertensives must be avoided in pregnancy?", "answerable": true, "gold_file": "hypertension_guide.pdf", "gold_page": 3, "must_include": [["ace inhibitor"], ["arb", "angiotensin receptor"]]}
+{"id": "a1", "question": "What is the first-line antibiotic for acute otitis media in children?", "answerable": true, "gold_file": "antibiotic_stewardship.pdf", "gold_page": 1, "must_include": [["amoxicillin"]]}
+{"id": "a2", "question": "What can be used instead of amoxicillin if the patient has a penicillin allergy?", "answerable": true, "gold_file": "antibiotic_stewardship.pdf", "gold_page": 1, "must_include": [["azithromycin", "macrolide"]]}
+{"id": "a3", "question": "Do antibiotics work against the common cold?", "answerable": true, "gold_file": "antibiotic_stewardship.pdf", "gold_page": 1, "must_include": [["not effective", "no", "ineffective", "do not"]]}
+{"id": "a4", "question": "Which antibiotic carries one of the highest risks of C. difficile infection?", "answerable": true, "gold_file": "antibiotic_stewardship.pdf", "gold_page": 2, "must_include": [["clindamycin"]]}
+{"id": "a5", "question": "How are MRSA infections that need IV therapy usually treated?", "answerable": true, "gold_file": "antibiotic_stewardship.pdf", "gold_page": 2, "must_include": [["vancomycin"]]}
+{"id": "a6", "question": "What serious musculoskeletal warning applies to ciprofloxacin?", "answerable": true, "gold_file": "antibiotic_stewardship.pdf", "gold_page": 2, "must_include": [["tendon"]]}
+{"id": "d1", "question": "What HbA1c level is diagnostic of diabetes?", "answerable": true, "gold_file": "diabetes_summary.docx", "gold_page": null, "must_include": [["6.5"]]}
+{"id": "d2", "question": "What HbA1c range indicates prediabetes?", "answerable": true, "gold_file": "diabetes_summary.docx", "gold_page": null, "must_include": [["5.7"], ["6.4"]]}
+{"id": "d3", "question": "When should metformin not be used?", "answerable": true, "gold_file": "diabetes_summary.docx", "gold_page": null, "must_include": [["egfr", "kidney", "renal"], ["30"]]}
+{"id": "d4", "question": "What causes type 1 diabetes?", "answerable": true, "gold_file": "diabetes_summary.docx", "gold_page": null, "must_include": [["autoimmune"], ["beta"]]}
+{"id": "d5", "question": "How should a conscious patient with low blood sugar be treated?", "answerable": true, "gold_file": "diabetes_summary.docx", "gold_page": null, "must_include": [["15"]]}
+{"id": "d6", "question": "Which drug class is recommended for diabetics with heart failure?", "answerable": true, "gold_file": "diabetes_summary.docx", "gold_page": null, "must_include": [["sglt2", "empagliflozin"]]}
+{"id": "r1", "question": "What spirometry result confirms COPD?", "answerable": true, "gold_file": "asthma_copd.txt", "gold_page": null, "must_include": [["0.70", "0.7"]]}
+{"id": "r2", "question": "What is the most effective intervention to slow COPD progression?", "answerable": true, "gold_file": "asthma_copd.txt", "gold_page": null, "must_include": [["smoking cessation", "stopping smoking", "quit"]]}
+{"id": "r3", "question": "What is the cornerstone of long-term asthma control?", "answerable": true, "gold_file": "asthma_copd.txt", "gold_page": null, "must_include": [["inhaled corticosteroid", "budesonide"]]}
+{"id": "c1", "question": "What are the three core symptoms required to diagnose ME/CFS?", "answerable": true, "gold_file": "chronic_fatigue.txt", "gold_page": null, "must_include": [["post-exertional malaise", "post exertional malaise"], ["unrefreshing sleep"], ["six months", "6 months", "reduction"]]}
+{"id": "c2", "question": "Is graded exercise therapy recommended for chronic fatigue syndrome?", "answerable": true, "gold_file": "chronic_fatigue.txt", "gold_page": null, "must_include": [["no longer recommended", "not recommended", "no"]]}
+{"id": "u1", "question": "What is the starting dose of insulin glargine?", "answerable": false, "kind": "medical_not_in_docs"}
+{"id": "u2", "question": "How is a migraine attack treated?", "answerable": false, "kind": "medical_not_in_docs"}
+{"id": "u3", "question": "What is the normal reference range for TSH?", "answerable": false, "kind": "medical_not_in_docs"}
+{"id": "u4", "question": "Which statin is first-line for high cholesterol?", "answerable": false, "kind": "medical_not_in_docs"}
+{"id": "u5", "question": "At what age should children receive the MMR vaccine?", "answerable": false, "kind": "medical_not_in_docs"}
+{"id": "o1", "question": "What is the capital of France?", "answerable": false, "kind": "off_topic"}
+{"id": "o2", "question": "Who won the 2018 FIFA World Cup?", "answerable": false, "kind": "off_topic"}
+{"id": "o3", "question": "Write a Python function that reverses a string.", "answerable": false, "kind": "off_topic"}

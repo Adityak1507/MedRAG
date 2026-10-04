@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.db import init_db
 from app.rag.embeddings import get_embedder
-from app.routers import documents, query, system
+from app.routers import auth, chats, documents, query, system
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("medrag")
@@ -36,10 +36,14 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,
+    allow_credentials=True,  # the session cookie
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Total-Count"],
 )
 
 app.include_router(system.router)
+app.include_router(auth.router)
+app.include_router(chats.router)
 app.include_router(documents.router)
 app.include_router(query.router)
