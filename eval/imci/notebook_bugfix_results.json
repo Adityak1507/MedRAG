@@ -1,0 +1,27 @@
+{
+  "chroma_old": {
+    "queries_returning_results": 0,
+    "recall@4": 0.0
+  },
+  "chroma_new": {
+    "queries_returning_results": 42,
+    "recall@4": 0.35714285714285715
+  },
+  "faiss_small_doc_old": {
+    "chunks_in_index": 2,
+    "results": 5,
+    "duplicate_results": 3
+  },
+  "faiss_small_doc_new": {
+    "chunks_in_index": 2,
+    "results": 2,
+    "duplicate_results": 0
+  },
+  "fallback": {
+    "questions_with_answer_in_context": 15,
+    "answer_shown_old": 4,
+    "answer_shown_new": 8,
+    "avg_share_of_lines_matched_old": 0.809,
+    "avg_share_of_lines_matched_new": 0.621
+  }
+}

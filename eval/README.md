@@ -86,6 +86,12 @@ Suggested protocol: at least two clinicians independently grade the same 50–10
 documents (PubMedQA abstracts are research findings, not the guidelines and handouts the app is meant for), and
 anything marked harmful is reviewed together.
 
+## 4. Design-choice comparisons (IMCI handbook)
+
+`imci/` compares alternatives on the WHO IMCI Handbook with 42 labelled questions: chunk sizes, general vs
+biomedical embeddings, keyword vs dense vs hybrid search, and the original vs fixed notebook code. It runs offline
+(no backend or LLM needed). See `imci/README.md`.
+
 ## Results
 
 See `results/` for full reports. Baseline on 2026-10-04 (all-MiniLM-L6-v2 embeddings, chunk size 512, top_k 4,

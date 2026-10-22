@@ -1,0 +1,8 @@
+# On top of backend/requirements.txt
+rank-bm25>=0.2
+faiss-cpu
+chromadb
+# Optional stand-ins when the Hugging Face model can't be downloaded
+spacy>=3.7,<3.8
+https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl
+https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_md-0.5.4.tar.gz
